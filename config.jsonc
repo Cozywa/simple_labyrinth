@@ -1,8 +1,8 @@
 {
   "WINDOW": {
     // 窗口
-    "WIDTH": 75,
-    "HEIGHT": 59,
+    "WIDTH": 71,
+    "HEIGHT": 55,
     "TITLE": "Maze"
   },
   "CELL_SIZE": 15,
@@ -10,6 +10,7 @@
   "SEED": null,
   // 种子 null 为随机
   "Tick": 60,
+  "WaitTick": 10,
   "MoveDelay": 70,
   "COLOR": {
     // 颜色定义
