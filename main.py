@@ -23,7 +23,7 @@ import json5  # A JSON parser library with comments
 import pygame
 
 type Pos = tuple[int, int]
-type Maze = list[list[int]]
+type MazeMap = list[list[int]]
 type Color = tuple[int, int, int]
 
 # Initialize pygame
@@ -38,6 +38,7 @@ class GameConfig:
     cell_size: int
     seed: int  # seed, Control random map generation
     tick: int
+    wait_tick: int
     move_delay: int
     wall_color: Color
     road_color: Color
@@ -80,7 +81,7 @@ DEFAULT_CONFIG: dict[str, typing.Any] = {
         "BLUE": [0, 0, 255]
     }
 }
-_CONFIG = DEFAULT_CONFIG
+CONFIG = DEFAULT_CONFIG
 
 
 def initial_setup(config: dict[str, typing.Any]) -> GameConfig:
@@ -95,6 +96,7 @@ def initial_setup(config: dict[str, typing.Any]) -> GameConfig:
         cell_size=config["CELL_SIZE"],
         seed=config["SEED"],
         tick=config["Tick"],
+        wait_tick=config["WaitTick"],
         move_delay=config["MoveDelay"],
         wall_color=tuple(colors["WALL"]),
         road_color=tuple(colors["ROAD"]),
@@ -108,14 +110,14 @@ def initial_setup(config: dict[str, typing.Any]) -> GameConfig:
 config_path = os.path.abspath("config.jsonc")
 if os.path.exists(config_path):
     with open(config_path, encoding='utf-8') as config_file:
-        _CONFIG = json5.load(config_file)  # If got the configuration, replace it with the one in the file
+        CONFIG = json5.load(config_file)  # If got the configuration, replace it with the one in the file
 else:
-    print("No config file.\nUse default config")
+    raise Warning("\033[31m No config file.\n\033[33m Use default config")
 
 try:
-    setting: GameConfig = initial_setup(_CONFIG)
+    setting: GameConfig = initial_setup(CONFIG)
 except KeyError:
-    print("\033[31m-Invalid config file.\n\033[33m-Use default config.\033[0m")
+    print("\033[31m Invalid config file.\n\033[33m Use default config.\033[0m")
     setting = initial_setup(DEFAULT_CONFIG)
 
 move_data: MoveData = MoveData(
@@ -137,18 +139,18 @@ class Player:
             self,
             start_pos: Pos,
             exit_pos: Pos,
-            maze: Maze,
+            maze: MazeMap,
             screen
     ) -> None:
         """
         :param start_pos: Player's starting coordinates
         :param exit_pos: The location of exit
         :param maze: The data of maze
-        :param screen: screen (pygame)
+        :param screen: The screen (pygame)
         """
         self.x, self.y = start_pos
         self.exit_x, self.exit_y = exit_pos
-        self.maze: Maze = maze
+        self.maze: MazeMap = maze
 
         self.screen = screen
         self.current_direction: int | None = None  # Record the direction of the last successful move (key value)
@@ -203,14 +205,14 @@ class Player:
         )
 
 
-def generate_maze() -> tuple[Maze, int, int]:
+def generate_maze() -> tuple[MazeMap, int, int]:
     """
     Generate a maze, with the end at the longest path
     :return: The data of maze and the position of the end
     """
     # Initialize a binary list for the maze (all walls)
-    maze: Maze = [[-1] * setting.width for _ in range(setting.height)]
-    maze[0][0]: int = 0  # Mark the entrance as an empty lot (distance is 0)
+    maze_map: MazeMap = [[-1] * setting.width for _ in range(setting.height)]
+    maze_map[0][0]: int = 0  # Mark the entrance as an empty lot (distance is 0)
 
     # Store branch nodes to return to the previous branch after a branch ends
     stack: list[tuple[Pos, int]] = [((0, 0), 0)]
@@ -228,13 +230,13 @@ def generate_maze() -> tuple[Maze, int, int]:
         # If the direction of the straight line with one space in between is a wall, mark it
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
-            if 0 <= nx < setting.width and 0 <= ny < setting.height and maze[ny][nx] == -1:
+            if 0 <= nx < setting.width and 0 <= ny < setting.height and maze_map[ny][nx] == -1:
                 neighbors.append((nx, ny))
 
         if neighbors:
             next_x, next_y = random.choice(neighbors)
-            maze[(next_y + y) // 2][(next_x + x) // 2] = distance
-            maze[next_y][next_x] = distance  # Open up this road
+            maze_map[(next_y + y) // 2][(next_x + x) // 2] = distance
+            maze_map[next_y][next_x] = distance  # Open up this road
             stack.append(((next_x, next_y), distance))
         else:
             # Delete the points that are no longer valid, go back to the previous point, and continue branching
@@ -243,14 +245,14 @@ def generate_maze() -> tuple[Maze, int, int]:
     exit_x, exit_y = 0, 0
 
     # Find the point with the greatest distance (if there are multiple, take the first one)
-    max_dist = -float('inf')
+    max_distance = -float('inf')
     for y in range(setting.height):
         for x in range(setting.width):
-            if maze[y][x] > max_dist:
-                max_dist = maze[y][x]
+            if maze_map[y][x] > max_distance:
+                max_distance = maze_map[y][x]
                 exit_x, exit_y = x, y
 
-    return maze, exit_x, exit_y
+    return maze_map, exit_x, exit_y
 
 
 def main() -> None | typing.NoReturn:
@@ -267,11 +269,6 @@ def main() -> None | typing.NoReturn:
         else:
             print("Notes:\n", document)
 
-    def graphic() -> None:
-        screen.blit(visible_surface, (0, 0))
-        player.draw()
-        pygame.display.update()
-
     def update_cell(draw_x: int, draw_y: int) -> None:
         rect: tuple[int, int, int, int] = (
             draw_x * setting.cell_size,
@@ -285,6 +282,7 @@ def main() -> None | typing.NoReturn:
             pygame.draw.rect(visible_surface, setting.start_color, rect)
         if draw_x == exit_x and draw_y == exit_y:  # Update end
             pygame.draw.rect(visible_surface, setting.exit_color, rect)
+        dirty_rects.append(rect)
 
     def reveal_area(cx: int = 0, cy: int = 0) -> None:
         """
@@ -298,6 +296,15 @@ def main() -> None | typing.NoReturn:
                 explored[ny][nx] = True  # Edit explored list
                 update_cell(nx, ny)
 
+    def graphic() -> None:
+        screen.blit(visible_surface, (0, 0))
+        player.draw()
+        if dirty_rects:
+            pygame.display.update(dirty_rects)  # Only update the dirty rects
+            dirty_rects.clear()
+        else:
+            pygame.display.flip()
+
     random.seed(setting.seed)
     screen = pygame.display.set_mode((setting.window_width, setting.window_height))
     pygame.display.set_caption(setting.title)
@@ -309,6 +316,8 @@ def main() -> None | typing.NoReturn:
     explored = [[False] * setting.width for _ in range(setting.height)]  # Explored list, True means lit up
     visible_surface = pygame.Surface((setting.window_width, setting.window_height))
     visible_surface.fill(setting.wall_color)
+
+    dirty_rects = []  # Store the cells which needs to update
     reveal_area()
 
     player = Player((0, 0), (exit_x, exit_y), maze, screen)
@@ -344,9 +353,9 @@ def main() -> None | typing.NoReturn:
         move_keys = {key: keys[key] for key in move_data.move_dir}
         if current_time - last_move_time > setting.move_delay and not win:
             if any(move_keys):
-                old_x, old_y = player.x, player.y
+                old_pos = (player.x, player.y)
                 player.move(move_keys)
-                if (player.x, player.y) != (old_x, old_y):
+                if (player.x, player.y) != (old_pos[0], old_pos[1]):
                     reveal_area(player.x, player.y)  # Reveal around the new location
                     last_move_time = current_time  # Set the last move time to the current time
 
@@ -376,7 +385,7 @@ def main() -> None | typing.NoReturn:
                 print("Pass successfully\n", f"Used {used_time}s")
             while running:  # Wait for exit
                 event_handle()
-                clock.tick(setting.tick)
+                clock.tick(setting.wait_tick)
 
     pygame.quit()
 
