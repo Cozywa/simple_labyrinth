@@ -7,7 +7,7 @@ The classes (or type names) in this project
 from dataclasses import dataclass
 
 type Pos = tuple[int, int]
-type MazeMap = list[list[int]]
+type MazeMap = list[list[bool]]
 type Color = tuple[int, int, int]
 
 

@@ -70,3 +70,13 @@ try:
 except KeyError:
     print(_invalid_cfg_out)
     setting = initial_setup(_DEFAULT_CONFIG)
+
+# Check the height and width
+area_warn = (
+    f"{Fore.YELLOW}The height and width should be odd numbers:"
+    f"{Fore.LIGHTRED_EX}{setting.height}, {setting.width}{Style.RESET_ALL}"
+)
+is_height_even = setting.height % 2 == 0 and setting.height > 0
+is_width_even = setting.width % 2 == 0 and setting.width > 0
+if any((is_height_even, is_width_even)):
+    raise ValueError(area_warn)

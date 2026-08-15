@@ -54,11 +54,17 @@ v1.2.3
 - Now, type, configuration loading, and maze generation are separate scripts
 - Reuse terminal output on Windows
 - Even heights and widths will cause the script to raise a ValueError
-- Use ``colorama`` to make colored output
+- Use `colorama` to make colored output
 
 v1.2.4
 -
-- Add `README.md` and `changed.md`
+- Add `README.md` and `history.md`
 - Use `json` instead of `json5`, reduce unnecessary dependence on third-party libraries
 - Remove the comments in the config
 - Use game_config.json
+
+v1.2.5
+-
+- The locate of exit is random, no longer the furthest
+- Print the usage time with only 3 decimal places
+- Move the heights and widths checks to `config_analysis.py`

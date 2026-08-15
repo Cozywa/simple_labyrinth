@@ -2,8 +2,6 @@
 # main.py
 """
 **A maze game**\n
-* start pos: the left upper corner of the maze\n
-* end pos: the right down corner of the maze\n
 * rule: use WASD to move, Escape to exit when you win\n
 ====\n\n====\n
 By *Cozy_wa*\n
@@ -35,16 +33,6 @@ move_data: MoveData = MoveData(
         pygame.K_d: (1, 0)
     }
 )
-
-# Check the height and width
-area_warn = (
-    f"{Fore.YELLOW}The height and width should be odd numbers:"
-    f"{Fore.LIGHTRED_EX}{setting.height}, {setting.width}{Style.RESET_ALL}"
-)
-is_height_even = setting.height % 2 == 0 and setting.height > 0
-is_width_even = setting.width % 2 == 0 and setting.width > 0
-if any((is_height_even, is_width_even)):
-    raise ValueError(area_warn)
 
 
 class Player:
@@ -104,7 +92,7 @@ class Player:
         for key in order:
             dx, dy = move_data.move_dir[key]
             nx, ny = self.x + dx, self.y + dy
-            if 0 <= nx < setting.width and 0 <= ny < setting.height and self.maze[ny][nx] > -1:
+            if 0 <= nx < setting.width and 0 <= ny < setting.height and self.maze[ny][nx]:
                 self.x = nx
                 self.y = ny
                 self.current_direction = key  # Update current direction
@@ -130,12 +118,12 @@ def main() -> None | typing.NoReturn:
             setting.cell_size,
             setting.cell_size
         )
-        if maze[draw_y][draw_x] > 0:
+        if any((draw_x > 0, draw_y > 0)) and maze_map[draw_y][draw_x]:
             pygame.draw.rect(visible_surface, setting.road_color, rect)
-        elif maze[draw_y][draw_x] == 0:  # Draw start
+            if draw_x == exit_x and draw_y == exit_y:  # Update end
+                pygame.draw.rect(visible_surface, setting.exit_color, rect)
+        elif all((draw_x == 0, draw_y == 0)):  # Draw start
             pygame.draw.rect(visible_surface, setting.start_color, rect)
-        if draw_x == exit_x and draw_y == exit_y:  # Update end
-            pygame.draw.rect(visible_surface, setting.exit_color, rect)
         dirty_rects.append(rect)
 
     def reveal_area(cx: int = 0, cy: int = 0) -> None:
@@ -164,7 +152,7 @@ def main() -> None | typing.NoReturn:
 
     # Clock that controls movement speed
     clock = pygame.time.Clock()
-    maze, exit_x, exit_y = generate_maze(setting=setting)
+    maze_map, exit_x, exit_y = generate_maze(setting=setting)
 
     explored = [[False] * setting.width for _ in range(setting.height)]  # Explored list, True means lit up
     visible_surface = pygame.Surface((setting.window_width, setting.window_height))
@@ -173,7 +161,7 @@ def main() -> None | typing.NoReturn:
     dirty_rects = []  # Store the cells which needs to update
     reveal_area()
 
-    player = Player((0, 0), (exit_x, exit_y), maze, screen)
+    player = Player((0, 0), (exit_x, exit_y), maze_map, screen)
     # Last move time: if the interval current_time - last_move_time is less than move_delay, moving is not allowed
     last_move_time = 0
     win = False
@@ -225,7 +213,7 @@ def main() -> None | typing.NoReturn:
                         explored[y][x] = True
                         update_cell(x, y)
             graphic()
-            print("Pass successfully\n", f"Used {used_time}s")
+            print(f"Pass successfully\nUsed {Fore.GREEN}{used_time:.3f}s{Style.RESET_ALL}")
             while running:  # Wait for exit
                 event_handle()
                 clock.tick(setting.wait_tick)
