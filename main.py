@@ -10,115 +10,18 @@ By *Cozy_wa*\n
 Email: ``Cozy_wa_9149U4@outlook.com``\n
 """
 
-import ctypes
-import os
-import platform
-import random
-import threading
-import time
+from time import time
 import typing
-from dataclasses import dataclass
+from colorama import Fore,  Style
 
-import json5  # A JSON parser library with comments
 import pygame
 
-type Pos = tuple[int, int]
-type MazeMap = list[list[int]]
-type Color = tuple[int, int, int]
+from generator import generate_maze
+from classes import Pos, MazeMap, MoveData
+from config_analysis import setting
 
 # Initialize pygame
 pygame.init()
-
-
-@dataclass
-class GameConfig:
-    width: int
-    height: int
-    title: str
-    cell_size: int
-    seed: int  # seed, Control random map generation
-    tick: int
-    wait_tick: int
-    move_delay: int
-    wall_color: Color
-    road_color: Color
-    exit_color: Color
-    player_color: Color
-    start_color: Color
-
-    @property
-    def window_width(self) -> int:
-        return self.width * self.cell_size
-
-    @property
-    def window_height(self) -> int:  # noqa: N802
-        return self.height * self.cell_size
-
-
-@dataclass
-class MoveData:
-    """Mobile-related data"""
-    # Move keys
-    up_key: int
-    down_key: int
-    left_key: int
-    right_key: int
-    # Move directions
-    move_dir: dict[int, Pos]
-
-
-DEFAULT_CONFIG: dict[str, typing.Any] = {
-    "WINDOW": {"WIDTH": 41, "HEIGHT": 35, "TITLE": "Maze"},
-    "CELL_SIZE": 15,
-    "SEED": None,
-    "Tick": 60,
-    "MoveDelay": 70,
-    "COLOR": {
-        "WALL": [0, 0, 0],
-        "ROAD": [255, 255, 255],
-        "RED": [255, 0, 0],
-        "GREEN": [0, 255, 0],
-        "BLUE": [0, 0, 255]
-    }
-}
-CONFIG = DEFAULT_CONFIG
-
-
-def initial_setup(config: dict[str, typing.Any]) -> GameConfig:
-    """Do the initial setup and return"""
-    colors: dict[str, Color] = config["COLOR"]
-    window: dict[str, typing.Any] = config["WINDOW"]
-
-    return GameConfig(
-        width=window["WIDTH"],
-        height=window["HEIGHT"],
-        title=window["TITLE"],
-        cell_size=config["CELL_SIZE"],
-        seed=config["SEED"],
-        tick=config["Tick"],
-        wait_tick=config["WaitTick"],
-        move_delay=config["MoveDelay"],
-        wall_color=tuple(colors["WALL"]),
-        road_color=tuple(colors["ROAD"]),
-        exit_color=tuple(colors["RED"]),
-        player_color=tuple(colors["GREEN"]),
-        start_color=tuple(colors["BLUE"])
-    )
-
-
-# Load configuration
-config_path = os.path.abspath("config.jsonc")
-if os.path.exists(config_path):
-    with open(config_path, encoding='utf-8') as config_file:
-        CONFIG = json5.load(config_file)  # If got the configuration, replace it with the one in the file
-else:
-    raise Warning("\033[31m No config file.\n\033[33m Use default config")
-
-try:
-    setting: GameConfig = initial_setup(CONFIG)
-except KeyError:
-    print("\033[31m Invalid config file.\n\033[33m Use default config.\033[0m")
-    setting = initial_setup(DEFAULT_CONFIG)
 
 move_data: MoveData = MoveData(
     up_key=pygame.K_w,
@@ -132,6 +35,16 @@ move_data: MoveData = MoveData(
         pygame.K_d: (1, 0)
     }
 )
+
+# Check the height and width
+area_warn = (
+    f"{Fore.YELLOW}The height and width should be odd numbers:"
+    f"{Fore.LIGHTRED_EX}{setting.height}, {setting.width}{Style.RESET_ALL}"
+)
+is_height_even = setting.height % 2 == 0 and setting.height > 0
+is_width_even = setting.width % 2 == 0 and setting.width > 0
+if any((is_height_even, is_width_even)):
+    raise ValueError(area_warn)
 
 
 class Player:
@@ -205,69 +118,10 @@ class Player:
         )
 
 
-def generate_maze() -> tuple[MazeMap, int, int]:
-    """
-    Generate a maze, with the end at the longest path
-    :return: The data of maze and the position of the end
-    """
-    # Initialize a binary list for the maze (all walls)
-    maze_map: MazeMap = [[-1] * setting.width for _ in range(setting.height)]
-    maze_map[0][0]: int = 0  # Mark the entrance as an empty lot (distance is 0)
-
-    # Store branch nodes to return to the previous branch after a branch ends
-    stack: list[tuple[Pos, int]] = [((0, 0), 0)]
-    directions: tuple[Pos, ...] = (
-        (-2, 0),
-        (2, 0),
-        (0, -2),
-        (0, 2)
-    )
-    while stack:  # If there are generated units in the pile
-        x, y = stack[-1][0]  # Get the last generated unit from the stack
-        distance: int = stack[-1][1] + 1  # Get the distance of this generated cell
-        neighbors: list[Pos] = []
-
-        # If the direction of the straight line with one space in between is a wall, mark it
-        for dx, dy in directions:
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < setting.width and 0 <= ny < setting.height and maze_map[ny][nx] == -1:
-                neighbors.append((nx, ny))
-
-        if neighbors:
-            next_x, next_y = random.choice(neighbors)
-            maze_map[(next_y + y) // 2][(next_x + x) // 2] = distance
-            maze_map[next_y][next_x] = distance  # Open up this road
-            stack.append(((next_x, next_y), distance))
-        else:
-            # Delete the points that are no longer valid, go back to the previous point, and continue branching
-            stack.pop()
-
-    exit_x, exit_y = 0, 0
-
-    # Find the point with the greatest distance (if there are multiple, take the first one)
-    max_distance = -float('inf')
-    for y in range(setting.height):
-        for x in range(setting.width):
-            if maze_map[y][x] > max_distance:
-                max_distance = maze_map[y][x]
-                exit_x, exit_y = x, y
-
-    return maze_map, exit_x, exit_y
-
-
 def main() -> None | typing.NoReturn:
-    def windows_show_message_box(tip: str, title: str) -> None:
-        """Show popup"""
-        ctypes.windll.user32.MessageBoxW(0, tip, title, 0)  # noqa: F821
-
-    is_windows = platform.system() == "Windows"
     # Handle the original script document
     document: str = __doc__.replace('\n\n', '\n') if __doc__ is not None else ""
-    if document:
-        if is_windows:
-            windows_show_message_box(document, "Notes")
-        else:
-            print("Notes:\n", document)
+    print("Notes:\n", document)
 
     def update_cell(draw_x: int, draw_y: int) -> None:
         rect: tuple[int, int, int, int] = (
@@ -305,13 +159,12 @@ def main() -> None | typing.NoReturn:
         else:
             pygame.display.flip()
 
-    random.seed(setting.seed)
     screen = pygame.display.set_mode((setting.window_width, setting.window_height))
     pygame.display.set_caption(setting.title)
 
     # Clock that controls movement speed
     clock = pygame.time.Clock()
-    maze, exit_x, exit_y = generate_maze()
+    maze, exit_x, exit_y = generate_maze(setting=setting)
 
     explored = [[False] * setting.width for _ in range(setting.height)]  # Explored list, True means lit up
     visible_surface = pygame.Surface((setting.window_width, setting.window_height))
@@ -337,7 +190,7 @@ def main() -> None | typing.NoReturn:
                 if event.key in move_data.move_dir:  # 移动
                     player.last_key = event.key
 
-    start_time = time.time()
+    start_time = time()
 
     while running:
         # Draw game elements
@@ -362,7 +215,7 @@ def main() -> None | typing.NoReturn:
         # Check if reach end
         if not win and player.is_win:
             win = True
-            finish_time = time.time()
+            finish_time = time()
 
             used_time = finish_time - start_time
             # Reveal the full map after victory
@@ -372,17 +225,7 @@ def main() -> None | typing.NoReturn:
                         explored[y][x] = True
                         update_cell(x, y)
             graphic()
-            if is_windows:
-                threading.Thread(
-                    target=windows_show_message_box,
-                    args=(
-                        f"Used {used_time}s",
-                        "Pass successfully"
-                    ),
-                    daemon=True
-                ).start()  # Show popup, daemon control window ends when the main process ends
-            else:
-                print("Pass successfully\n", f"Used {used_time}s")
+            print("Pass successfully\n", f"Used {used_time}s")
             while running:  # Wait for exit
                 event_handle()
                 clock.tick(setting.wait_tick)
