@@ -68,3 +68,9 @@ v1.2.5
 - The locate of exit is random, no longer the furthest
 - Print the usage time with only 3 decimal places
 - Move the heights and widths checks to `config_analysis.py`
+
+v1.2.6
+-
+- Wrap the contents of the run loop and wait loop into nested functions
+- Move the Player class to classes.py
+- Change main.py to game.py
