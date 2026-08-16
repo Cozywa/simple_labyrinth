@@ -8,12 +8,13 @@
 HOW TO PLAY
 : Python: >= 3.12
 : install:  pygame, colorama
-: run main.py, then you can see the tips
+: run `game.py`, then you can see the tips
 
-* move keys: ``W`` ``A`` ``S`` ``D``
+* move keys: `W` `A` `S` `D`
 * WIN: reach the exit
 
 Have a good play! :D
 
 Author: *Cozy_wa*
-Email: ``cozy_wa_9149u4@outlook.com``
+
+Email: `cozy_wa_9149u4@outlook.com`
