@@ -96,4 +96,4 @@ v1.2.7
 v1.2.8
 -
 - Fixed the index error
-- Change hte default `WaitTick` to 20
+- Change the default `WaitTick` to 20
