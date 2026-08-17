@@ -6,8 +6,9 @@
 * while you play, you should light the way by yourself :)
 
 HOW TO PLAY
-: Python: >= 3.12
-: install: [pygame](https://github.com/pygame/pygame), [colorama](https://github.com/tartley/colorama)
+1. Python: >= 3.12
+2. install: [pygame](https://github.com/pygame/pygame), [colorama](https://github.com/tartley/colorama)
+3. Run `game.py`
 
 * move keys: `W` `A` `S` `D`
 * WIN: reach the exit
